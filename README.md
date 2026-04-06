@@ -164,7 +164,6 @@ celery -A flux beat --loglevel=info
 ```
 
 ---
-                                           |
 
 ## Live Demo
 
