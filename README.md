@@ -164,7 +164,10 @@ celery -A flux beat --loglevel=info
 ```
 
 ---
+## ERD Design 
+Link(https://drive.google.com/file/d/1j-tggyK3RoAuAkRDZqTdaPwm6-U2mUcv/view?usp=sharing)
 
+---
 ## Live Demo
 
 Coming Day 30.
