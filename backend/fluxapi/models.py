@@ -1,7 +1,8 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
 
-class UserRegistration(AbstractUser):
+class UserProfile(AbstractUser):
     ROLE = [
         ('admin', 'Admin'),
         ('customer', 'Customer'),
