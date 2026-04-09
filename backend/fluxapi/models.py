@@ -1,24 +1,17 @@
 from django.db import models
 
 
-class UserProfile(models.Model):
+class UserRegistration(AbstractUser):
     ROLE = [
         ('admin', 'Admin'),
         ('customer', 'Customer'),
         ('rider', 'Rider'),
         ('sender', 'Sender'),
     ]
-
-    firstname = models.CharField(max_length=100)
-    lastname = models.CharField(max_length=100)
-    username = models.CharField(max_length=100)
-    email = models.EmailField()
     role = models.CharField(max_length=50, choices=ROLE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.username
+    
 
 class RiderProfile(models.Model):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='rider_profile')
