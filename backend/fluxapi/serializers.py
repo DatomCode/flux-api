@@ -65,3 +65,9 @@ class CustomerRegistrationSerializer(serializers.ModelSerializer):
         )
 
         return user
+    
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'first_name', 'last_name', 'username', 'email', 'role', 'created_at', 'updated_at']

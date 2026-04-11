@@ -1,11 +1,11 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import UserProfile, RiderProfile, CustomerProfile
-from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer
+from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer, UserProfileSerializer
 
 
 # Create your views here.
@@ -30,10 +30,10 @@ class SenderRegistrationView(APIView):
             user = serializer.save(role='sender')
             tokens = get_tokens_for_user(user)
             return Response({'user': {
-                 'id': user.id, 
-                 'email': user.email, 
-                 'username': user.username, 
-                 'role': user.role}
+                'id': user.id, 
+                'email': user.email, 
+                'username': user.username, 
+                'role': user.role},
                     **tokens}, status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
@@ -50,7 +50,7 @@ class RiderRegistrationView(APIView):
                 'id': user.id, 
                 'email': user.email, 
                 'username': user.username, 
-                'role': user.role}
+                'role': user.role},
                     **tokens}, status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
@@ -67,7 +67,7 @@ class CustomerRegistrationView(APIView):
                 'id': user.id, 
                 'email': user.email, 
                 'username': user.username, 
-                'role': user.role}
+                'role': user.role},
                     **tokens}, status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
@@ -75,4 +75,10 @@ class CustomerRegistrationView(APIView):
 
 
 
-
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        user = request.user
+        serializer = UserProfileSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
