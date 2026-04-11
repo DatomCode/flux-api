@@ -30,12 +30,49 @@ class SenderRegistrationView(APIView):
             user = serializer.save(role='sender')
             tokens = get_tokens_for_user(user)
             return Response({'user': {
-                {'id': user.id, 
+                 'id': user.id, 
                  'email': user.email, 
                  'username': user.username, 
                  'role': user.role}
-                    **tokens}}, status.HTTP_201_CREATED)
+                    **tokens}, status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+class RiderRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RiderRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save(role='rider')
+            tokens = get_tokens_for_user(user)
+            return Response({'user': {
+                'id': user.id, 
+                'email': user.email, 
+                'username': user.username, 
+                'role': user.role}
+                    **tokens}, status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+    
+class CustomerRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = CustomerRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save(role='customer')
+            tokens = get_tokens_for_user(user)
+            return Response({'user': {
+                'id': user.id, 
+                'email': user.email, 
+                'username': user.username, 
+                'role': user.role}
+                    **tokens}, status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+    
+
+
 
 
