@@ -68,7 +68,7 @@ class Order(models.Model):
     delivery_address = models.ForeignKey(Address, on_delete=models.CASCADE, related_name='orders')
     package_description = models.TextField()
     pickup_address = models.CharField(max_length=255)
-    delivery_address_text = models.CharField(max_length=255)
+    delivery_address = models.CharField(max_length=255)
     current_status = models.CharField(max_length=50, choices=STATUS, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
