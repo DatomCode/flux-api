@@ -4,8 +4,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import UserProfile, RiderProfile, CustomerProfile
-from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer, UserProfileSerializer
+from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer, UserProfileSerializer, OrderSerializer
+from .permissions import IsSender, IsRider, IsCustomer
 
 
 # Create your views here.
@@ -82,3 +82,19 @@ class UserProfileView(APIView):
         serializer = UserProfileSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+
+class OrderCreationView(APIView):
+    permission_classes = [IsSender]
+    
+
+    def post(self, request): 
+        serializer = OrderSerializer(data = request.data)
+        if serializer.is_valid():
+            order = serializer.save(sender=request.user)
+            return Response({'order': {
+                'id': order.id, 
+                'pickup_address': order.pickup_address, 
+                'delivery_address': order.delivery_address, 
+                'status': order.current_status
+                }}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
