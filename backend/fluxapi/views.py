@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer, UserProfileSerializer, OrderSerializer
 from .permissions import IsSender, IsRider, IsCustomer
-from .models import Order
+from .models import Order, RiderProfile
 
 
 # Create your views here.
@@ -129,9 +129,13 @@ class AcceptOderView(APIView):
 
     def post(self, request, order_id):
         rider = request.user
+        
         try:
+            rider_profile = RiderProfile.objects.select_for_update().get(user=rider)
+            if not rider_profile.is_available:
+                return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST) 
+             
             order = Order.objects.select_for_update().get(id=order_id)
-
             if order.current_status != 'pending':
                 return Response({'error': 'Order has been assigned to another rider'}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -139,7 +143,20 @@ class AcceptOderView(APIView):
             order.current_status = 'assigned'
             order.save()
 
+            rider_profile.is_available = False
+            rider_profile.active_order = order
+            rider_profile.save()
+
             return Response({'message': 'Order successfully assigned to you'}, status=status.HTTP_200_OK)
         
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+    class AvailableOrdersView(APIView):
+        permission_classes = [IsRider]
+
+        def get(self, request):
+            orders = Order.objects.filter(current_status='pending')
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
