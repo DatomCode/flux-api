@@ -157,6 +157,9 @@ class AcceptOderView(APIView):
         permission_classes = [IsRider]
 
         def get(self, request):
-            orders = Order.objects.filter(current_status='pending')
+            rider_profile = RiderProfile.objects.get(user=request.user)
+            if not rider_profile.is_available:
+                return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST)
+            orders = Order.objects.filter(current_status='pending').order_by('-created_at')
             serializer = OrderSerializer(orders, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
