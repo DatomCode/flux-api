@@ -13,16 +13,25 @@ class UserProfile(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+class Address(models.Model):
+    address = models.CharField(max_length=255)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return f"{self.address}, {self.city}, {self.state}"
+    
 class RiderProfile(models.Model):
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='rider_profile')
+    user = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='rider_profile')
     active_order = models.ForeignKey('Order', on_delete=models.SET_NULL, null=True, blank=True, related_name='active_rider')
     is_available = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class CustomerProfile(models.Model):
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='customer_profile')
-    default_delivery_address = models.CharField(max_length=255, null=True, blank=True)
+    user = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='customer_profile')
+    default_delivery_address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_default_address')
     phone_number = models.CharField(max_length=20, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -38,15 +47,7 @@ class Company(models.Model):
         return self.name
 
 
-class Address(models.Model):
-    address = models.CharField(max_length=255)
-    city = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.address}, {self.city}, {self.state}"
 
 
 class Order(models.Model):
@@ -64,8 +65,7 @@ class Order(models.Model):
     sender = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='sent_orders')
     customer = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='received_orders')
     rider = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='assigned_orders', null=True, blank=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='orders')
-    delivery_address = models.ForeignKey(Address, on_delete=models.CASCADE, related_name='orders')
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='orders', null= True, blank= True)
     package_description = models.TextField()
     pickup_address = models.CharField(max_length=255)
     delivery_address = models.CharField(max_length=255)
