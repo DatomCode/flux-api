@@ -79,8 +79,8 @@ class Order(models.Model):
 
 class DeliveryCode(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='delivery_codes')
-    code_a = models.CharField(max_length=6)
-    code_b = models.CharField(max_length=6)
+    rider_code = models.CharField(max_length=6)
+    customer_code = models.CharField(max_length=6)
     expires_at = models.DateTimeField()
     rider_confirmed = models.BooleanField(default=False)
     customer_confirmed = models.BooleanField(default=False)

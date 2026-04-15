@@ -1,5 +1,6 @@
-from time import timezone
 
+from django.utils import timezone
+import secrets
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -8,7 +9,8 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer, UserProfileSerializer, OrderSerializer
 from .permissions import IsSender, IsRider, IsCustomer
-from .models import Order, RiderProfile
+from .models import DeliveryCode, Order, RiderProfile
+from datetime import timedelta
 
 
 # Create your views here.
@@ -125,22 +127,23 @@ class OrderCreationView(APIView):
                 'status': order.current_status
             }}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
 class AcceptOderView(APIView):
     permission_classes = [IsRider]
 
     def post(self, request, order_id):
         rider = request.user
-        
+
         try:
             rider_profile = RiderProfile.objects.select_for_update().get(user=rider)
             if not rider_profile.is_available:
-                return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST) 
-             
+                return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST)
+
             order = Order.objects.select_for_update().get(id=order_id)
             if order.current_status != 'pending':
                 return Response({'error': 'Order has been assigned to another rider'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
             order.rider = rider
             order.current_status = 'assigned'
             order.save()
@@ -150,10 +153,10 @@ class AcceptOderView(APIView):
             rider_profile.save()
 
             return Response({'message': 'Order successfully assigned to you'}, status=status.HTTP_200_OK)
-        
+
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-        
+
 
 class AvailableOrdersView(APIView):
     permission_classes = [IsRider]
@@ -162,7 +165,8 @@ class AvailableOrdersView(APIView):
         rider_profile = RiderProfile.objects.get(user=request.user)
         if not rider_profile.is_available:
             return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST)
-        orders = Order.objects.filter(current_status='pending').order_by('-created_at')
+        orders = Order.objects.filter(
+            current_status='pending').order_by('-created_at')
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -176,21 +180,48 @@ class PickupOrderView(APIView):
             if order.rider != request.user:
                 return Response({'error': 'You are not assigned to this order'}, status=status.HTTP_403_FORBIDDEN)
             if order.current_status != 'assigned':
-                return Response({'error': 'Order is not in an assignable state'}, status=status.HTTP_400_BAD_REQUEST)
-            
+                return Response({'error': f'Cannot pick up order. Current status is {order.current_status}.'},  status=status.HTTP_400_BAD_REQUEST)
+
             order.current_status = "picked_up"
             order.picked_up_at = timezone.now()
             order.save()
             return Response({'message': 'Order marked as picked up'}, status=status.HTTP_200_OK)
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-    
-    
-        
 
 
-    
+class ArriveOrderView(APIView):
+    permission_classes = [IsRider]
 
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
 
+            if order.rider != request.user:
+                return Response({'error': 'You are not assigned to this order'}, status=status.HTTP_403_FORBIDDEN)
 
+            if order.current_status != 'in_transit':
+                return Response({'error': 'Order is not in transit'}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+            if DeliveryCode.objects.filter(order=order).exists():
+                return Response({'error': 'Delivery codes already generated for this order'}, status=status.HTTP_400_BAD_REQUEST)
+
+            order.current_status = 'arrived'
+            order.save()
+
+            delivery_code = DeliveryCode.objects.create(
+                order=order,
+                rider_code=secrets.token_hex(3),
+                customer_code=secrets.token_hex(3),
+                expires_at=timezone.now() + timedelta(minutes=30)
+            )
+
+            return Response({
+                'message': 'Arrived at delivery location',
+                'rider_code': delivery_code.rider_code,      
+                'customer_code': delivery_code.customer_code
+            }, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
