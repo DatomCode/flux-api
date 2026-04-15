@@ -225,3 +225,92 @@ class ArriveOrderView(APIView):
 
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+class VerifyCustomerView(APIView):
+    permission_classes = [IsRider]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+
+            if order.rider != request.user:
+                return Response({'error': 'You are not assigned to this order'}, status=status.HTTP_403_FORBIDDEN)
+
+            if order.current_status != 'arrived':
+                return Response({'error': 'Order is not at delivery location'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                delivery_code = DeliveryCode.objects.get(order=order)
+            except DeliveryCode.DoesNotExist:
+                return Response({'error': 'Delivery codes not found for this order'}, status=status.HTTP_404_NOT_FOUND)
+
+            if delivery_code.customer_confirmed:
+                return Response({'error': 'Customer code already verified'}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+            if timezone.now() > delivery_code.expires_at:
+                return Response({'error': 'Delivery codes have expired'}, status=status.HTTP_400_BAD_REQUEST)
+
+            submitted_code = request.data.get('customer_code')
+            if submitted_code != delivery_code.customer_code:
+                return Response({'error': 'Invalid customer code'}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+            delivery_code.customer_confirmed = True
+            delivery_code.customer_confirmed_at = timezone.now()
+            delivery_code.save()
+
+            return Response({'message': 'Customer code verified. Share your rider code with the customer.'}, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class VerifyRiderView(APIView):
+    
+    permission_classes = [IsCustomer]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+
+            if order.current_status != 'arrived':
+                return Response({'error': 'Order is not at delivery location'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                delivery_code = DeliveryCode.objects.get(order=order)
+            except DeliveryCode.DoesNotExist:
+                return Response({'error': 'Delivery codes not found for this order'}, status=status.HTTP_404_NOT_FOUND)
+
+            if not delivery_code.customer_confirmed:
+                return Response({'error': 'Rider must verify customer code first'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if delivery_code.rider_confirmed:
+                return Response({'error': 'Rider code already verified'}, status=status.HTTP_400_BAD_REQUEST)
+
+    
+            if timezone.now() > delivery_code.expires_at:
+                return Response({'error': 'Delivery codes have expired'}, status=status.HTTP_400_BAD_REQUEST)
+
+            submitted_code = request.data.get('rider_code')
+            if submitted_code != delivery_code.rider_code:
+                return Response({'error': 'Invalid rider code'}, status=status.HTTP_400_BAD_REQUEST)
+
+            delivery_code.rider_confirmed = True
+            delivery_code.rider_confirmed_at = timezone.now()
+            delivery_code.save()
+
+            order.current_status = 'delivered'
+            order.save()
+
+            rider_profile = RiderProfile.objects.get(user=order.rider)
+            rider_profile.is_available = True
+            rider_profile.active_order = None
+            rider_profile.save()
+
+            return Response({'message': 'Delivery confirmed. Order complete.'}, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
