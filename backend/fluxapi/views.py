@@ -1,3 +1,5 @@
+from time import timezone
+
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -153,13 +155,42 @@ class AcceptOderView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
         
 
-    class AvailableOrdersView(APIView):
-        permission_classes = [IsRider]
+class AvailableOrdersView(APIView):
+    permission_classes = [IsRider]
 
-        def get(self, request):
-            rider_profile = RiderProfile.objects.get(user=request.user)
-            if not rider_profile.is_available:
-                return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST)
-            orders = Order.objects.filter(current_status='pending').order_by('-created_at')
-            serializer = OrderSerializer(orders, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+    def get(self, request):
+        rider_profile = RiderProfile.objects.get(user=request.user)
+        if not rider_profile.is_available:
+            return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST)
+        orders = Order.objects.filter(current_status='pending').order_by('-created_at')
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PickupOrderView(APIView):
+    permission_classes = [IsRider]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+            if order.rider != request.user:
+                return Response({'error': 'You are not assigned to this order'}, status=status.HTTP_403_FORBIDDEN)
+            if order.current_status != 'assigned':
+                return Response({'error': 'Order is not in an assignable state'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            order.current_status = "picked_up"
+            order.picked_up_at = timezone.now()
+            order.save()
+            return Response({'message': 'Order marked as picked up'}, status=status.HTTP_200_OK)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    
+    
+        
+
+
+    
+
+
+
