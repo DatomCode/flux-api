@@ -331,10 +331,31 @@ class FetchRiderProfileView(APIView):
         serializer = RiderProfileSerializer(rider_profile)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-class FetchOrderDetailsView(APIView):
+class FetchRiderOrderDetailsView(APIView):
     permission_classes = [IsRider]
 
     def get(self, request):
         orders = Order.objects.filter(rider=request.user).order_by('-created_at')
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class FetchSenderOrdersDetailsView(APIView):
+    permission_classes = [IsSender]
+
+    def get(self, request):
+        orders = Order.objects.filter(sender=request.user).order_by('-created_at')
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class FetchSenderOrderWellDetailsView(APIView):
+    permission_classes = [IsSender]
+
+    def get(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id, sender=request.user)
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        
