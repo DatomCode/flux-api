@@ -146,3 +146,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
    
     
+class RiderProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiderProfile
+        fields = ['id', 'user', 'is_available', 'created_at', 'updated_at']

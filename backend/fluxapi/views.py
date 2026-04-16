@@ -7,10 +7,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer, UserProfileSerializer, OrderSerializer
+from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer, UserProfileSerializer, OrderSerializer, RiderProfileSerializer
 from .permissions import IsSender, IsRider, IsCustomer
 from .models import DeliveryCode, Order, RiderProfile
 from datetime import timedelta
+from django.db import transaction
 
 
 # Create your views here.
@@ -203,7 +204,6 @@ class ArriveOrderView(APIView):
             if order.current_status != 'in_transit':
                 return Response({'error': 'Order is not in transit'}, status=status.HTTP_400_BAD_REQUEST)
 
-            
             if DeliveryCode.objects.filter(order=order).exists():
                 return Response({'error': 'Delivery codes already generated for this order'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -214,18 +214,17 @@ class ArriveOrderView(APIView):
                 order=order,
                 rider_code=secrets.token_hex(3),
                 customer_code=secrets.token_hex(3),
-                expires_at=timezone.now() + timedelta(minutes=30)
+                expires_at=timezone.now() + timedelta(minutes=15)
             )
 
             return Response({
                 'message': 'Arrived at delivery location',
-                'rider_code': delivery_code.rider_code,      
+                'rider_code': delivery_code.rider_code,
                 'customer_code': delivery_code.customer_code
             }, status=status.HTTP_200_OK)
 
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-
 
 
 class VerifyCustomerView(APIView):
@@ -249,7 +248,6 @@ class VerifyCustomerView(APIView):
             if delivery_code.customer_confirmed:
                 return Response({'error': 'Customer code already verified'}, status=status.HTTP_400_BAD_REQUEST)
 
-            
             if timezone.now() > delivery_code.expires_at:
                 return Response({'error': 'Delivery codes have expired'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -257,7 +255,6 @@ class VerifyCustomerView(APIView):
             if submitted_code != delivery_code.customer_code:
                 return Response({'error': 'Invalid customer code'}, status=status.HTTP_400_BAD_REQUEST)
 
-            
             delivery_code.customer_confirmed = True
             delivery_code.customer_confirmed_at = timezone.now()
             delivery_code.save()
@@ -266,10 +263,10 @@ class VerifyCustomerView(APIView):
 
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-        
+
 
 class VerifyRiderView(APIView):
-    
+
     permission_classes = [IsCustomer]
 
     def post(self, request, order_id):
@@ -290,27 +287,54 @@ class VerifyRiderView(APIView):
             if delivery_code.rider_confirmed:
                 return Response({'error': 'Rider code already verified'}, status=status.HTTP_400_BAD_REQUEST)
 
-    
             if timezone.now() > delivery_code.expires_at:
                 return Response({'error': 'Delivery codes have expired'}, status=status.HTTP_400_BAD_REQUEST)
 
             submitted_code = request.data.get('rider_code')
             if submitted_code != delivery_code.rider_code:
                 return Response({'error': 'Invalid rider code'}, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                delivery_code.rider_confirmed = True
+                delivery_code.rider_confirmed_at = timezone.now()
+                delivery_code.save()
 
-            delivery_code.rider_confirmed = True
-            delivery_code.rider_confirmed_at = timezone.now()
-            delivery_code.save()
+                order.current_status = 'delivered'
+                order.save()
 
-            order.current_status = 'delivered'
-            order.save()
-
-            rider_profile = RiderProfile.objects.get(user=order.rider)
-            rider_profile.is_available = True
-            rider_profile.active_order = None
-            rider_profile.save()
+                rider_profile = RiderProfile.objects.get(user=order.rider)
+                rider_profile.is_available = True
+                rider_profile.active_order = None
+                rider_profile.save()
 
             return Response({'message': 'Delivery confirmed. Order complete.'}, status=status.HTTP_200_OK)
 
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class RiderAvailabilitySwitchView(APIView):
+    permission_classes = [IsRider]
+
+    def post(self, request):
+        rider_profile = RiderProfile.objects.get(user=request.user)
+        if rider_profile.active_order:
+            return Response({'error': 'Cannot change availability while having an active order'}, status=status.HTTP_400_BAD_REQUEST)
+        rider_profile.is_available = not rider_profile.is_available
+        rider_profile.save()
+        return Response({'message': f'Availability set to {rider_profile.is_available}'}, status=status.HTTP_200_OK)
+    
+class FetchRiderProfileView(APIView):
+    permission_classes = [IsRider]
+
+    def get(self, request):
+        rider_profile = RiderProfile.objects.get(user=request.user)
+        serializer = RiderProfileSerializer(rider_profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class FetchOrderDetailsView(APIView):
+    permission_classes = [IsRider]
+
+    def get(self, request):
+        orders = Order.objects.filter(rider=request.user).order_by('-created_at')
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

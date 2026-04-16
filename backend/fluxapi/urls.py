@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SenderRegistrationView, RiderRegistrationView, CustomerRegistrationView, UserProfileView, OrderCreationView, LogoutView, AcceptOderView, AvailableOrdersView, PickupOrderView, VerifyCustomerView, VerifyRiderView
+from .views import SenderRegistrationView, RiderRegistrationView, CustomerRegistrationView, UserProfileView, OrderCreationView, LogoutView, AcceptOderView, AvailableOrdersView, PickupOrderView, VerifyCustomerView, VerifyRiderView, FetchOrderDetailsView, FetchRiderProfileView, RiderAvailabilitySwitchView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
@@ -20,12 +20,13 @@ urlpatterns = [
     path("deliveries/available/", AvailableOrdersView.as_view(), name="available-orders"),
 
 
-
-
     path("deliveries/<int:order_id>/pickup/", PickupOrderView.as_view(), name="order-pickup"),
     path("deliveries/<int:order_id>/customer/confirm/", VerifyCustomerView.as_view(), name="customer-confirm"),
     path("deliveries/<int:order_id>/rider/confirm/", VerifyRiderView.as_view(), name="rider-confirm"),
 
-    
+    # rider endpoints
+    path("rider/profile/", FetchRiderProfileView.as_view(), name="fetch-rider-profile"),
+    path("rider/orders/", FetchOrderDetailsView.as_view(), name="fetch-order-details"),
+    path("rider/availability/", RiderAvailabilitySwitchView.as_view(), name="rider-availability-switch"),
 
 ]
