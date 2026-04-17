@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserRegistrationSerializer, RiderRegistrationSerializer, CustomerRegistrationSerializer, UserProfileSerializer, OrderSerializer, RiderProfileSerializer
-from .permissions import IsSender, IsRider, IsCustomer
+from .permissions import IsAdmin, IsSender, IsRider, IsCustomer
 from .models import DeliveryCode, Order, RiderProfile
 from datetime import timedelta
 from django.db import transaction
@@ -359,3 +359,81 @@ class FetchSenderOrderWellDetailsView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
         
         
+class FetchCustomerOrdersDetailsView(APIView):
+    permission_classes = [IsCustomer]
+
+    def get(self, request):
+        orders = Order.objects.filter(customer=request.user).order_by('-created_at')
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class FetchCustomerOrderWellDetailsView(APIView):
+    permission_classes = [IsCustomer]
+
+    def get(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id, customer=request.user)
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class AdminOrdersListView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        orders = Order.objects.all().order_by('-created_at')
+
+       
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            orders = orders.filter(current_status=status_filter)
+
+        
+        date_filter = request.query_params.get('date')
+        if date_filter:
+            orders = orders.filter(created_at__date=date_filter)
+
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class AdminRidersListView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        riders = RiderProfile.objects.select_related('user').all().order_by('-created_at')
+        serializer = RiderProfileSerializer(riders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class AdminOrderStateOverrideView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+
+            new_status = request.data.get('current_status')
+            if not new_status:
+                return Response({'error': 'Status is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            valid_statuses = ['pending', 'assigned', 'accepted', 'picked_up', 'in_transit', 'arrived', 'delivered', 'completed']
+            if new_status not in valid_statuses:
+                return Response({'error': f'Invalid status. Valid options are: {valid_statuses}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            old_status = order.current_status
+            order.current_status = new_status
+            order.save()
+
+            return Response({
+                'message': f'Order status updated',
+                'order_id': order.id,
+                'old_status': old_status,
+                'new_status': order.current_status
+            }, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+

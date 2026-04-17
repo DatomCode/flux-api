@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SenderRegistrationView, RiderRegistrationView, CustomerRegistrationView, UserProfileView, OrderCreationView, LogoutView, AcceptOderView, AvailableOrdersView, PickupOrderView, VerifyCustomerView, VerifyRiderView, FetchRiderOrderDetailsView, FetchRiderProfileView, RiderAvailabilitySwitchView, FetchSenderOrdersDetailsView, FetchSenderOrderWellDetailsView
+from .views import SenderRegistrationView, RiderRegistrationView, CustomerRegistrationView, UserProfileView, OrderCreationView, LogoutView, AcceptOderView, AvailableOrdersView, PickupOrderView, VerifyCustomerView, VerifyRiderView, FetchRiderOrderDetailsView, FetchRiderProfileView, RiderAvailabilitySwitchView, FetchSenderOrdersDetailsView, FetchSenderOrderWellDetailsView, FetchCustomerOrdersDetailsView, FetchCustomerOrderWellDetailsView, AdminRidersListView, AdminOrdersListView, AdminOrderStateOverrideView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
@@ -32,5 +32,13 @@ urlpatterns = [
     # sender endpoints
     path("sender/orders/", FetchSenderOrdersDetailsView.as_view(), name="fetch-sender-orders"),
     path("sender/orders/<int:order_id>/details/", FetchSenderOrderWellDetailsView.as_view(), name="fetch-sender-order-details"),
+
+    # customer endpoints
+    path("customer/orders/", FetchCustomerOrdersDetailsView.as_view(), name="fetch-customer-orders"),
+    path("customer/orders/<int:order_id>/details/", FetchCustomerOrderWellDetailsView.as_view(), name="fetch-customer-order-details"),
     
+    # admin endpoints
+    path("admin/riders/", AdminRidersListView.as_view(), name="admin-riders-list"),
+    path("admin/orders/", AdminOrdersListView.as_view(), name="admin-orders-list"), 
+    path("admin/orders/<int:order_id>/override/", AdminOrderStateOverrideView.as_view(), name="admin-order-override"),
 ]
