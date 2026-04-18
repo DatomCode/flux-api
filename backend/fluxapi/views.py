@@ -437,3 +437,16 @@ class AdminOrderStateOverrideView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+class DeliveriesDetailsView(APIView):
+    permission_classes = [IsRider, IsSender, IsCustomer, IsAdmin]
+
+    def get(self, request, order_id):
+        try:
+            order = Order.objects.get(id = order_id)
+            if request.user == IsAdmin:
+                pass
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
