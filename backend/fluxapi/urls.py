@@ -1,15 +1,14 @@
 from django.urls import path
-from .views import SenderRegistrationView, RiderRegistrationView, CustomerRegistrationView, UserProfileView, OrderCreationView, LogoutView, AcceptOderView, AvailableOrdersView, PickupOrderView, VerifyCustomerView, VerifyRiderView, FetchRiderOrderDetailsView, FetchRiderProfileView, RiderAvailabilitySwitchView, FetchSenderOrdersDetailsView, FetchSenderOrderWellDetailsView, FetchCustomerOrdersDetailsView, FetchCustomerOrderWellDetailsView, AdminRidersListView, AdminOrdersListView, AdminOrderStateOverrideView, DeliveriesDetailsView
+from .views import UserProfileView, UserRegistrationView, OrderCreationView, LogoutView, AcceptOderView, AvailableOrdersView, PickupOrderView, VerifyCustomerView, VerifyRiderView, FetchRiderOrderDetailsView, FetchRiderProfileView, UserLoginView, RiderAvailabilitySwitchView, FetchSenderOrdersDetailsView, FetchSenderOrderWellDetailsView, FetchCustomerOrdersDetailsView, FetchCustomerOrderWellDetailsView, AdminRidersListView, AdminOrdersListView, AdminOrderStateOverrideView, DeliveriesDetailsView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
 
 urlpatterns = [
     # auth endpoint
-    path("auth/sender/",SenderRegistrationView.as_view(), name="sender-registration"),
-    path("auth/rider/",RiderRegistrationView.as_view(), name="rider-registration"),
-    path("auth/customer/",CustomerRegistrationView.as_view(), name="customer-registration"),
+    path('auth/register/', UserRegistrationView.as_view(), name='auth_register'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('auth/login/', UserLoginView.as_view(), name='token_obtain_pair'),
     path('auth/logout/', LogoutView.as_view(), name='auth_logout'),
     path("profile/", UserProfileView.as_view(), name="user-profile"),
     
@@ -25,7 +24,6 @@ urlpatterns = [
     path("deliveries/<int:order_id>/rider/confirm/", VerifyRiderView.as_view(), name="rider-confirm"),
 
     # rider endpoints
-    path("rider/profile/", FetchRiderProfileView.as_view(), name="fetch-rider-profile"),
     path("rider/orders/", FetchRiderOrderDetailsView.as_view(), name="fetch-order-details"),
     path("rider/availability/", RiderAvailabilitySwitchView.as_view(), name="rider-availability-switch"),
 

@@ -1,79 +1,69 @@
 from rest_framework import serializers
 from .models import UserProfile, RiderProfile, CustomerProfile, Order
 
-
+# User registration serializer
 class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['id', 'first_name', 'last_name', 'username', 'email', 'password', 'created_at', 'updated_at']
+        fields = ['id', 'first_name', 'last_name', 'username', 'email', 'password', 'created_at', 'updated_at', 'role']
         extra_kwargs = {'password': {'write_only': True}}
 
+    # Add validation to prevent users from registering as admin
+    def validate_role(self, value):
+        if value == 'admin':
+            raise serializers.ValidationError("Cannot register as admin.")
+    
+    # create method to handle user creation and associated profile creation
     def create(self, validated_data):
+
+        role = validated_data.get('role')
+
         user = UserProfile.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
-            role = validated_data['role']
+            role = role
         )
+        # Automatically create associated profile based on role
+        if role == 'rider':
+            RiderProfile.objects.create(
+                user=user,
+                is_available=True
+            )
+        elif role == 'customer':
+            CustomerProfile.objects.create(
+                user=user,
+                phone_number='',
+                default_delivery_address=None
+            )
 
         return user
     
 
-class RiderRegistrationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProfile
-        fields = ['id', 'first_name', 'last_name', 'username', 'email', 'password', 'created_at', 'updated_at']
-        extra_kwargs = {'password': {'write_only': True}}
+# Profile serializer to return users details along with role-specific profile information
 
-    def create(self, validated_data):
-        user = UserProfile.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name']
-        )
-
-        RiderProfile.objects.create(
-        user=user,
-        is_available=True
-        )
-
-        return user
-    
-
-class CustomerRegistrationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProfile
-        fields = ['id', 'first_name', 'last_name', 'username', 'email', 'password', 'created_at', 'updated_at']
-        extra_kwargs = {'password': {'write_only': True}}
-
-    def create(self, validated_data):
-        user = UserProfile.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            role = validated_data['role']
-            
-        )
-
-        CustomerProfile.objects.create(
-        user=user,
-        default_delivery_address='',
-        phone_number=''
-        )
-
-        return user
-    
-
+#returns sender and admin details
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['id', 'first_name', 'last_name', 'username', 'email', 'role', 'created_at', 'updated_at']
+
+#  returns rider details along with availability status
+class RiderProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiderProfile
+        fields = ['id', 'user', 'is_available', 'created_at', 'updated_at']
+
+# returns customer details along with phone number and default delivery address
+class CustomerProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerProfile
+        fields = ['id', 'user', 'phone_number', 'default_delivery_address', 'created_at', 'updated_at']
+
+
+
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -146,7 +136,3 @@ class OrderSerializer(serializers.ModelSerializer):
 
    
     
-class RiderProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RiderProfile
-        fields = ['id', 'user', 'is_available', 'created_at', 'updated_at']
