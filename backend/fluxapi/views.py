@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserRegistrationSerializer, UserProfileSerializer, OrderSerializer, RiderProfileSerializer, CustomerProfileSerializer
 from .permissions import IsAdmin, IsSender, IsRider, IsCustomer
-from .models import DeliveryCode, Order, RiderProfile, CustomerProfile
+from .models import DeliveryCode, Order, RiderProfile, CustomerProfile, DeliveryStatusLog
 from datetime import timedelta
 from django.db import transaction
 from django.contrib.auth import authenticate
@@ -17,13 +17,24 @@ from django.contrib.auth import authenticate
 # Create your views here.
 
 # gets refresh and access tokens for a user
+
+
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
     return {
         "refresh": str(refresh),
         "access": str(refresh.access_token),
     }
+# Helper function to log status changes for orders
 
+
+def log_status_change(order, actor, from_status, to_status):
+    DeliveryStatusLog.objects.create(
+        order=order,
+        actor=actor,
+        from_status=from_status,
+        to_status=to_status
+    )
 
 
 # User registration view that handles creating a new user and returning their details along with JWT tokens
@@ -73,8 +84,8 @@ class UserLoginView(APIView):
             },
             **tokens
         }, status=status.HTTP_200_OK)
-    
-    
+
+
 # View to return the authenticated user's profile details along with role-specific information
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -93,7 +104,6 @@ class UserProfileView(APIView):
             serializer = UserProfileSerializer(user)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 
 # View to handle user logout by blacklisting the refresh token
@@ -120,7 +130,6 @@ class LogoutView(APIView):
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
 
 
 class DeliveryCreationView(APIView):
@@ -159,6 +168,13 @@ class RiderAcceptOrderView(APIView):
             order.current_status = 'assigned'
             order.save()
 
+            log_status_change(
+                order=order,
+                actor=request.user,
+                from_status='pending',
+                to_status='assigned'
+            )
+
             rider_profile.is_available = False
             rider_profile.active_order = order
             rider_profile.save()
@@ -169,6 +185,35 @@ class RiderAcceptOrderView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+class InTransitOrderView(APIView):
+    permission_classes = [IsRider]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+
+            if order.rider != request.user:
+                return Response({'error': 'You are not assigned to this order'}, status=status.HTTP_403_FORBIDDEN)
+
+            if order.current_status != 'picked_up':
+                return Response({'error': f'Cannot mark order as in transit. Current status is {order.current_status}.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            order.current_status = 'in_transit'
+            order.save()
+
+            log_status_change(
+                order=order,
+                actor=request.user,
+                from_status='picked_up',
+                to_status='in_transit'
+            )
+
+            return Response({'message': 'Order is now in transit'}, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    
 class AvailableOrdersView(APIView):
     permission_classes = [IsRider]
 
@@ -196,6 +241,14 @@ class PickupOrderView(APIView):
             order.current_status = "picked_up"
             order.picked_up_at = timezone.now()
             order.save()
+
+            log_status_change(
+                order=order,
+                actor=request.user,
+                from_status='assigned',
+                to_status='picked_up'
+            )
+
             return Response({'message': 'Order marked as picked up'}, status=status.HTTP_200_OK)
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -219,6 +272,13 @@ class ArriveOrderView(APIView):
 
             order.current_status = 'arrived'
             order.save()
+
+            log_status_change(
+                order=order,
+                actor=request.user,
+                from_status='in_transit',
+                to_status='arrived'
+            )
 
             delivery_code = DeliveryCode.objects.create(
                 order=order,
@@ -269,6 +329,7 @@ class VerifyCustomerView(APIView):
             delivery_code.customer_confirmed_at = timezone.now()
             delivery_code.save()
 
+
             return Response({'message': 'Customer code verified. Share your rider code with the customer.'}, status=status.HTTP_200_OK)
 
         except Order.DoesNotExist:
@@ -311,6 +372,13 @@ class VerifyRiderView(APIView):
                 order.current_status = 'delivered'
                 order.save()
 
+                log_status_change(
+                    order=order,
+                    actor=request.user,
+                    from_status='arrived',
+                    to_status='delivered'
+                )
+
                 rider_profile = RiderProfile.objects.get(user=order.rider)
                 rider_profile.is_available = True
                 rider_profile.active_order = None
@@ -333,23 +401,27 @@ class RiderAvailabilitySwitchView(APIView):
         rider_profile.save()
         return Response({'message': f'Availability set to {rider_profile.is_available}'}, status=status.HTTP_200_OK)
 
-    
+
 class FetchRiderOrderDetailsView(APIView):
     permission_classes = [IsRider]
 
     def get(self, request):
-        orders = Order.objects.filter(rider=request.user).order_by('-created_at')
+        orders = Order.objects.filter(
+            rider=request.user).order_by('-created_at')
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class FetchSenderOrdersDetailsView(APIView):
     permission_classes = [IsSender]
 
     def get(self, request):
-        orders = Order.objects.filter(sender=request.user).order_by('-created_at')
+        orders = Order.objects.filter(
+            sender=request.user).order_by('-created_at')
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
+
 class FetchSenderOrderWellDetailsView(APIView):
     permission_classes = [IsSender]
 
@@ -360,16 +432,18 @@ class FetchSenderOrderWellDetailsView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        
+
+
 class FetchCustomerOrdersDetailsView(APIView):
     permission_classes = [IsCustomer]
 
     def get(self, request):
-        orders = Order.objects.filter(customer=request.user).order_by('-created_at')
+        orders = Order.objects.filter(
+            customer=request.user).order_by('-created_at')
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
+
 class FetchCustomerOrderWellDetailsView(APIView):
     permission_classes = [IsCustomer]
 
@@ -388,27 +462,27 @@ class AdminDeliveriesListView(APIView):
     def get(self, request):
         orders = Order.objects.all().order_by('-created_at')
 
-       
         status_filter = request.query_params.get('status')
         if status_filter:
             orders = orders.filter(current_status=status_filter)
 
-        
         date_filter = request.query_params.get('date')
         if date_filter:
             orders = orders.filter(created_at__date=date_filter)
 
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
+
 class AdminRidersListView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        riders = RiderProfile.objects.select_related('user').all().order_by('-created_at')
+        riders = RiderProfile.objects.select_related(
+            'user').all().order_by('-created_at')
         serializer = RiderProfileSerializer(riders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
 
 class AdminOrderStateOverrideView(APIView):
     permission_classes = [IsAdmin]
@@ -421,13 +495,22 @@ class AdminOrderStateOverrideView(APIView):
             if not new_status:
                 return Response({'error': 'Status is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-            valid_statuses = ['pending', 'assigned', 'accepted', 'picked_up', 'in_transit', 'arrived', 'delivered', 'completed']
+            valid_statuses = ['pending', 'assigned', 'accepted',
+                              'picked_up', 'in_transit', 'arrived', 'delivered', 'completed']
             if new_status not in valid_statuses:
                 return Response({'error': f'Invalid status. Valid options are: {valid_statuses}'}, status=status.HTTP_400_BAD_REQUEST)
 
             old_status = order.current_status
             order.current_status = new_status
             order.save()
+
+            log_status_change(
+                order=order,
+                actor=request.user,
+                from_status=old_status,
+                to_status=new_status
+            )
+            
 
             return Response({
                 'message': f'Order status updated',
@@ -445,11 +528,25 @@ class DeliveriesDetailsView(APIView):
 
     def get(self, request, order_id):
         try:
-            order = Order.objects.get(id = order_id)
-            if request.user == IsAdmin:
+            order = Order.objects.get(id=order_id)
+            role = request.user.role
+
+            if role == 'admin':
                 pass
+            elif role == 'sender':
+                if order.sender != request.user:
+                    return Response({'error': 'You do not have access to this order'}, status=status.HTTP_403_FORBIDDEN)
+            elif role == 'rider':
+                if order.rider != request.user:
+                    return Response({'error': 'You do not have access to this order'}, status=status.HTTP_403_FORBIDDEN)
+            elif role == 'customer':
+                if order.customer != request.user:
+                    return Response({'error': 'You do not have access to this order'}, status=status.HTTP_403_FORBIDDEN)
+            else:
+                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-
-
-
