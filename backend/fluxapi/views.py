@@ -16,7 +16,7 @@ from django.contrib.auth import authenticate
 
 # Create your views here.
 
-
+# gets refresh and access tokens for a user
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
     return {
@@ -25,6 +25,8 @@ def get_tokens_for_user(user):
     }
 
 
+
+# User registration view that handles creating a new user and returning their details along with JWT tokens
 class UserRegistrationView(APIView):
     permission_classes = [AllowAny]
 
@@ -45,6 +47,7 @@ class UserRegistrationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# User login view that authenticates the user and returns their details along with JWT tokens
 class UserLoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -70,6 +73,9 @@ class UserLoginView(APIView):
             },
             **tokens
         }, status=status.HTTP_200_OK)
+    
+    
+# View to return the authenticated user's profile details along with role-specific information
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -89,6 +95,8 @@ class UserProfileView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+
+# View to handle user logout by blacklisting the refresh token
 class LogoutView(APIView):
     permission_classes = [AllowAny]
 
@@ -114,7 +122,8 @@ class LogoutView(APIView):
             )
 
 
-class OrderCreationView(APIView):
+
+class DeliveryCreationView(APIView):
     permission_classes = [IsSender]
 
     def post(self, request):
@@ -131,7 +140,7 @@ class OrderCreationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class AcceptOderView(APIView):
+class RiderAcceptOrderView(APIView):
     permission_classes = [IsRider]
 
     def post(self, request, order_id):
@@ -373,7 +382,7 @@ class FetchCustomerOrderWellDetailsView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-class AdminOrdersListView(APIView):
+class AdminDeliveriesListView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
