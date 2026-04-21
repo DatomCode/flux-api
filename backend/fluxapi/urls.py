@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserProfileView, UserRegistrationView, DeliveryCreationView, LogoutView, RiderAcceptOrderView, AvailableOrdersView, PickupOrderView, VerifyCustomerView, VerifyRiderView, FetchRiderOrderDetailsView, UserLoginView, RiderAvailabilitySwitchView, FetchSenderOrdersDetailsView, FetchSenderOrderWellDetailsView, FetchCustomerOrdersDetailsView, FetchCustomerOrderWellDetailsView, AdminRidersListView, AdminDeliveriesListView, AdminOrderStateOverrideView, DeliveriesDetailsView
+from .views import UserProfileView, UserRegistrationView, DeliveryCreationView, LogoutView, RiderAcceptOrderView, AvailableOrdersView, PickupOrderView, DeliveryConfirmView, FetchRiderOrderDetailsView, UserLoginView, RiderAvailabilitySwitchView, FetchSenderOrdersDetailsView, FetchSenderOrderWellDetailsView, FetchCustomerOrdersDetailsView, FetchCustomerOrderWellDetailsView, AdminRidersListView, AdminDeliveriesListView, AdminOrderStateOverrideView, DeliveriesDetailsView, AdminRiderDetailView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
@@ -17,11 +17,10 @@ urlpatterns = [
     path("admin/deliveries/", AdminDeliveriesListView.as_view(), name="admin-deliveries-list"),
     path("deliveries/<int:order_id>/accept/", RiderAcceptOrderView.as_view(), name="rider-accept-order"),
     path("deliveries/available/", AvailableOrdersView.as_view(), name="available-orders"),
+    path("deliveries/<int:order_id>/confirm/", DeliveryConfirmView.as_view(), name="delivery-confirm"),
 
 
     path("deliveries/<int:order_id>/pickup/", PickupOrderView.as_view(), name="order-pickup"),
-    path("deliveries/<int:order_id>/customer/confirm/", VerifyCustomerView.as_view(), name="customer-confirm"),
-    path("deliveries/<int:order_id>/rider/confirm/", VerifyRiderView.as_view(), name="rider-confirm"),
 
     # rider endpoints
     path("rider/orders/", FetchRiderOrderDetailsView.as_view(),
@@ -46,6 +45,9 @@ urlpatterns = [
     
     path("admin/orders/<int:order_id>/override/",
          AdminOrderStateOverrideView.as_view(), name="admin-order-override"),
+     path("admin/riders/<int:rider_id>/details/",
+         AdminRiderDetailView.as_view(), name="admin-rider-detail"),
+     
 
     # deliveries details endpoint
     path("deliveries/<int:order_id>/details/",

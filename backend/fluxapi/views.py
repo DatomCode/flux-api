@@ -16,8 +16,8 @@ from django.contrib.auth import authenticate
 
 # Create your views here.
 
-# gets refresh and access tokens for a user
 
+# gets refresh and access tokens for a user
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -25,8 +25,10 @@ def get_tokens_for_user(user):
         "refresh": str(refresh),
         "access": str(refresh.access_token),
     }
-# Helper function to log status changes for orders
 
+
+
+# Helper function to log status changes for orders
 
 def log_status_change(order, actor, from_status, to_status):
     DeliveryStatusLog.objects.create(
@@ -38,6 +40,7 @@ def log_status_change(order, actor, from_status, to_status):
 
 
 # User registration view that handles creating a new user and returning their details along with JWT tokens
+
 class UserRegistrationView(APIView):
     permission_classes = [AllowAny]
 
@@ -59,6 +62,7 @@ class UserRegistrationView(APIView):
 
 
 # User login view that authenticates the user and returns their details along with JWT tokens
+
 class UserLoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -87,6 +91,7 @@ class UserLoginView(APIView):
 
 
 # View to return the authenticated user's profile details along with role-specific information
+
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -107,6 +112,7 @@ class UserProfileView(APIView):
 
 
 # View to handle user logout by blacklisting the refresh token
+
 class LogoutView(APIView):
     permission_classes = [AllowAny]
 
@@ -130,6 +136,7 @@ class LogoutView(APIView):
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
 
 
 class DeliveryCreationView(APIView):
@@ -297,97 +304,88 @@ class ArriveOrderView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-class VerifyCustomerView(APIView):
-    permission_classes = [IsRider]
+
+# This view handles the two-step delivery confirmation process where the rider first verifies the customer code and then the customer verifies the rider code to confirm delivery completion
+class DeliveryConfirmView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, order_id):
         try:
             order = Order.objects.get(id=order_id)
-
-            if order.rider != request.user:
-                return Response({'error': 'You are not assigned to this order'}, status=status.HTTP_403_FORBIDDEN)
-
-            if order.current_status != 'arrived':
-                return Response({'error': 'Order is not at delivery location'}, status=status.HTTP_400_BAD_REQUEST)
+            role = request.user.role
 
             try:
                 delivery_code = DeliveryCode.objects.get(order=order)
             except DeliveryCode.DoesNotExist:
                 return Response({'error': 'Delivery codes not found for this order'}, status=status.HTTP_404_NOT_FOUND)
 
-            if delivery_code.customer_confirmed:
-                return Response({'error': 'Customer code already verified'}, status=status.HTTP_400_BAD_REQUEST)
-
-            if timezone.now() > delivery_code.expires_at:
-                return Response({'error': 'Delivery codes have expired'}, status=status.HTTP_400_BAD_REQUEST)
-
-            submitted_code = request.data.get('customer_code')
-            if submitted_code != delivery_code.customer_code:
-                return Response({'error': 'Invalid customer code'}, status=status.HTTP_400_BAD_REQUEST)
-
-            delivery_code.customer_confirmed = True
-            delivery_code.customer_confirmed_at = timezone.now()
-            delivery_code.save()
-
-
-            return Response({'message': 'Customer code verified. Share your rider code with the customer.'}, status=status.HTTP_200_OK)
-
-        except Order.DoesNotExist:
-            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-
-
-class VerifyRiderView(APIView):
-
-    permission_classes = [IsCustomer]
-
-    def post(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id)
-
             if order.current_status != 'arrived':
                 return Response({'error': 'Order is not at delivery location'}, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                delivery_code = DeliveryCode.objects.get(order=order)
-            except DeliveryCode.DoesNotExist:
-                return Response({'error': 'Delivery codes not found for this order'}, status=status.HTTP_404_NOT_FOUND)
-
-            if not delivery_code.customer_confirmed:
-                return Response({'error': 'Rider must verify customer code first'}, status=status.HTTP_400_BAD_REQUEST)
-
-            if delivery_code.rider_confirmed:
-                return Response({'error': 'Rider code already verified'}, status=status.HTTP_400_BAD_REQUEST)
-
             if timezone.now() > delivery_code.expires_at:
                 return Response({'error': 'Delivery codes have expired'}, status=status.HTTP_400_BAD_REQUEST)
 
-            submitted_code = request.data.get('rider_code')
-            if submitted_code != delivery_code.rider_code:
-                return Response({'error': 'Invalid rider code'}, status=status.HTTP_400_BAD_REQUEST)
-            with transaction.atomic():
-                delivery_code.rider_confirmed = True
-                delivery_code.rider_confirmed_at = timezone.now()
+            # rider verifies customer code firstly
+            if role == 'rider':
+                if order.rider != request.user:
+                    return Response({'error': 'You are not assigned to this order'}, status=status.HTTP_403_FORBIDDEN)
+
+                if delivery_code.customer_confirmed:
+                    return Response({'error': 'Customer code already verified'}, status=status.HTTP_400_BAD_REQUEST)
+
+                submitted_code = request.data.get('customer_code')
+                if submitted_code != delivery_code.customer_code:
+                    return Response({'error': 'Invalid customer code'}, status=status.HTTP_400_BAD_REQUEST)
+
+                delivery_code.customer_confirmed = True
+                delivery_code.customer_confirmed_at = timezone.now()
                 delivery_code.save()
 
-                order.current_status = 'delivered'
-                order.save()
+                return Response({'message': 'Customer code verified. Share your rider code with the customer.'}, status=status.HTTP_200_OK)
 
-                log_status_change(
-                    order=order,
-                    actor=request.user,
-                    from_status='arrived',
-                    to_status='delivered'
-                )
+            # Customer verifies rider code secondly to complete the delivery
+            elif role == 'customer':
+                if order.customer != request.user:
+                    return Response({'error': 'You do not have access to this order'}, status=status.HTTP_403_FORBIDDEN)
 
-                rider_profile = RiderProfile.objects.get(user=order.rider)
-                rider_profile.is_available = True
-                rider_profile.active_order = None
-                rider_profile.save()
+                if not delivery_code.customer_confirmed:
+                    return Response({'error': 'Rider must verify customer code first'}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({'message': 'Delivery confirmed. Order complete.'}, status=status.HTTP_200_OK)
+                if delivery_code.rider_confirmed:
+                    return Response({'error': 'Rider code already verified'}, status=status.HTTP_400_BAD_REQUEST)
+
+                submitted_code = request.data.get('rider_code')
+                if submitted_code != delivery_code.rider_code:
+                    return Response({'error': 'Invalid rider code'}, status=status.HTTP_400_BAD_REQUEST)
+
+                with transaction.atomic():
+                    delivery_code.rider_confirmed = True
+                    delivery_code.rider_confirmed_at = timezone.now()
+                    delivery_code.save()
+
+                    order.current_status = 'delivered'
+                    order.save()
+
+                    log_status_change(
+                        order=order,
+                        actor=request.user,
+                        from_status='arrived',
+                        to_status='delivered'
+                    )
+
+                    rider_profile = RiderProfile.objects.get(user=order.rider)
+                    rider_profile.is_available = True
+                    rider_profile.active_order = None
+                    rider_profile.save()
+
+                return Response({'message': 'Delivery confirmed. Order complete.'}, status=status.HTTP_200_OK)
+
+            else:
+                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 
 class RiderAvailabilitySwitchView(APIView):
@@ -455,7 +453,7 @@ class FetchCustomerOrderWellDetailsView(APIView):
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
-
+# This view allows admin users to see a list of all deliveries (orders) along with their details. 
 class AdminDeliveriesListView(APIView):
     permission_classes = [IsAdmin]
 
@@ -474,6 +472,7 @@ class AdminDeliveriesListView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+# This view allows admin users to see a list of all riders along with their profiles and current availability status. 
 class AdminRidersListView(APIView):
     permission_classes = [IsAdmin]
 
@@ -482,8 +481,22 @@ class AdminRidersListView(APIView):
             'user').all().order_by('-created_at')
         serializer = RiderProfileSerializer(riders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+# This view allows admin users to see detailed information about a specific rider, including their profile details and current active order if they have one.
+class AdminRiderDetailView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request, rider_id):
+        try:
+            rider_profile = RiderProfile.objects.select_related('user').get(id=rider_id)
+            serializer = RiderProfileSerializer(rider_profile)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except RiderProfile.DoesNotExist:
+            return Response({'error': 'Rider not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+# This view allows admin users to override the current status of an order in case of any issues or disputes. 
 class AdminOrderStateOverrideView(APIView):
     permission_classes = [IsAdmin]
 
