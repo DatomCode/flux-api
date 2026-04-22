@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserProfileView, UserRegistrationView, DeliveryCreationView, LogoutView, RiderAcceptOrderView, AvailableOrdersView, PickupOrderView, DeliveryConfirmView, FetchRiderOrderDetailsView, UserLoginView, RiderAvailabilitySwitchView, FetchSenderOrdersDetailsView, FetchSenderOrderWellDetailsView, FetchCustomerOrdersDetailsView, FetchCustomerOrderWellDetailsView, AdminRidersListView, AdminDeliveriesListView, AdminOrderStateOverrideView, DeliveriesDetailsView, AdminRiderDetailView
+from .views import UserProfileView, UserRegistrationView, DeliveryCreationView, LogoutView, RiderAcceptOrderView, AvailableOrdersView, DeliveryConfirmView, FetchRiderOrderDetailsView, UserLoginView, RiderAvailabilitySwitchView, SenderOrderDetailView, SenderOrdersListView, CustomerOrderDetailView, CustomerOrdersListView, AdminRidersListView, AdminDeliveriesListView, AdminOrderStateOverrideView, DeliveriesDetailsView, AdminRiderDetailView, ArriveOrderView,  PickupOrderView, InTransitOrderView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
@@ -14,13 +14,23 @@ urlpatterns = [
 
     # delivery endpoints
     path("deliveries/", DeliveryCreationView.as_view(), name="delivery-create"),
-    path("admin/deliveries/", AdminDeliveriesListView.as_view(), name="admin-deliveries-list"),
-    path("deliveries/<int:order_id>/accept/", RiderAcceptOrderView.as_view(), name="rider-accept-order"),
-    path("deliveries/available/", AvailableOrdersView.as_view(), name="available-orders"),
-    path("deliveries/<int:order_id>/confirm/", DeliveryConfirmView.as_view(), name="delivery-confirm"),
+    path("admin/deliveries/", AdminDeliveriesListView.as_view(),
+         name="admin-deliveries-list"),
+    path("deliveries/<int:order_id>/accept/",
+         RiderAcceptOrderView.as_view(), name="rider-accept-order"),
+    path("deliveries/available/", AvailableOrdersView.as_view(),
+         name="available-orders"),
+    path("deliveries/<int:order_id>/confirm/",
+         DeliveryConfirmView.as_view(), name="delivery-confirm"),
+    path("deliveries/<int:order_id>/pickup/",
+         PickupOrderView.as_view(), name="order-pickup"),
+    path("deliveries/<int:order_id>/details/",
+         DeliveriesDetailsView.as_view(), name="deliveries-details"),
+    path("deliveries/<int:order_id>/arrive/",
+         ArriveOrderView.as_view(), name="order-arrive"),
+    path("deliveries/<int:order_id>/intransit/",
+         InTransitOrderView.as_view(), name='order-in-transit'),
 
-
-    path("deliveries/<int:order_id>/pickup/", PickupOrderView.as_view(), name="order-pickup"),
 
     # rider endpoints
     path("rider/orders/", FetchRiderOrderDetailsView.as_view(),
@@ -29,27 +39,24 @@ urlpatterns = [
          name="rider-availability-switch"),
 
     # sender endpoints
-    path("sender/orders/", FetchSenderOrdersDetailsView.as_view(),
+    path("sender/orders/", SenderOrdersListView.as_view(),
          name="fetch-sender-orders"),
     path("sender/orders/<int:order_id>/details/",
-         FetchSenderOrderWellDetailsView.as_view(), name="fetch-sender-order-details"),
+         SenderOrderDetailView.as_view(), name="fetch-sender-order-details"),
 
     # customer endpoints
-    path("customer/orders/", FetchCustomerOrdersDetailsView.as_view(),
+    path("customer/orders/", CustomerOrdersListView.as_view(),
          name="fetch-customer-orders"),
     path("customer/orders/<int:order_id>/details/",
-         FetchCustomerOrderWellDetailsView.as_view(), name="fetch-customer-order-details"),
+         CustomerOrderDetailView.as_view(), name="fetch-customer-order-details"),
+
 
     # admin endpoints
     path("admin/riders/", AdminRidersListView.as_view(), name="admin-riders-list"),
-    
+
     path("admin/orders/<int:order_id>/override/",
          AdminOrderStateOverrideView.as_view(), name="admin-order-override"),
-     path("admin/riders/<int:rider_id>/details/",
+    path("admin/riders/<int:rider_id>/details/",
          AdminRiderDetailView.as_view(), name="admin-rider-detail"),
-     
 
-    # deliveries details endpoint
-    path("deliveries/<int:order_id>/details/",
-         DeliveriesDetailsView.as_view(), name="deliveries-details"),
 ]

@@ -27,7 +27,6 @@ def get_tokens_for_user(user):
     }
 
 
-
 # Helper function to log status changes for orders
 
 def log_status_change(order, actor, from_status, to_status):
@@ -91,7 +90,6 @@ class UserLoginView(APIView):
 
 
 # View to return the authenticated user's profile details along with role-specific information
-
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -112,7 +110,6 @@ class UserProfileView(APIView):
 
 
 # View to handle user logout by blacklisting the refresh token
-
 class LogoutView(APIView):
     permission_classes = [AllowAny]
 
@@ -138,7 +135,7 @@ class LogoutView(APIView):
             )
 
 
-
+# Allows sender to create a new delivery
 class DeliveryCreationView(APIView):
     permission_classes = [IsSender]
 
@@ -156,6 +153,7 @@ class DeliveryCreationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# allows rider to accept a pending order for deivery
 class RiderAcceptOrderView(APIView):
     permission_classes = [IsRider]
 
@@ -164,6 +162,7 @@ class RiderAcceptOrderView(APIView):
 
         try:
             rider_profile = RiderProfile.objects.select_for_update().get(user=rider)
+            # Check if rider is available to accept a new order
             if not rider_profile.is_available:
                 return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -175,6 +174,7 @@ class RiderAcceptOrderView(APIView):
             order.current_status = 'assigned'
             order.save()
 
+            # logs the status change from pending to assigned along with the actor (rider) who made the change
             log_status_change(
                 order=order,
                 actor=request.user,
@@ -192,6 +192,7 @@ class RiderAcceptOrderView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+# Allows rider to mark an order as in transit after they have picked it up and are on the way to the delivery location
 class InTransitOrderView(APIView):
     permission_classes = [IsRider]
 
@@ -208,6 +209,7 @@ class InTransitOrderView(APIView):
             order.current_status = 'in_transit'
             order.save()
 
+            # logs the status change from picked_up to in_transit along with the actor (rider) who made the change
             log_status_change(
                 order=order,
                 actor=request.user,
@@ -219,8 +221,9 @@ class InTransitOrderView(APIView):
 
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-    
+
+
+# allows riders to see a list of all available orders that are currently pending and can be accepted for delivery.
 class AvailableOrdersView(APIView):
     permission_classes = [IsRider]
 
@@ -234,6 +237,7 @@ class AvailableOrdersView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+# This view allows riders to mark an order as picked up once they have arrived at the pickup location and collected the package from the sender.
 class PickupOrderView(APIView):
     permission_classes = [IsRider]
 
@@ -249,6 +253,7 @@ class PickupOrderView(APIView):
             order.picked_up_at = timezone.now()
             order.save()
 
+            # logs the status change from assigned to picked_up along with the actor (rider) who made the change
             log_status_change(
                 order=order,
                 actor=request.user,
@@ -261,6 +266,7 @@ class PickupOrderView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+# allows rider to mark an order as arrived once they have reached the delivery location
 class ArriveOrderView(APIView):
     permission_classes = [IsRider]
 
@@ -302,7 +308,6 @@ class ArriveOrderView(APIView):
 
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-
 
 
 # This view handles the two-step delivery confirmation process where the rider first verifies the customer code and then the customer verifies the rider code to confirm delivery completion
@@ -387,7 +392,7 @@ class DeliveryConfirmView(APIView):
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-
+# allows rider to toggle their availability status for accepting new orders. Riders can only change their availability if they do not have an active order assigned to them.
 class RiderAvailabilitySwitchView(APIView):
     permission_classes = [IsRider]
 
@@ -400,6 +405,7 @@ class RiderAvailabilitySwitchView(APIView):
         return Response({'message': f'Availability set to {rider_profile.is_available}'}, status=status.HTTP_200_OK)
 
 
+# allows rider to fetch all present and past orders that are assigned to them.
 class FetchRiderOrderDetailsView(APIView):
     permission_classes = [IsRider]
 
@@ -409,8 +415,8 @@ class FetchRiderOrderDetailsView(APIView):
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-class FetchSenderOrdersDetailsView(APIView):
+# allows sender to fetch all present and past deliveries they have made
+class SenderOrdersListView(APIView):
     permission_classes = [IsSender]
 
     def get(self, request):
@@ -419,8 +425,8 @@ class FetchSenderOrdersDetailsView(APIView):
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-class FetchSenderOrderWellDetailsView(APIView):
+# allows sender to fetch detailed information about a specific delivery they have made
+class SenderOrderDetailView(APIView):
     permission_classes = [IsSender]
 
     def get(self, request, order_id):
@@ -431,8 +437,8 @@ class FetchSenderOrderWellDetailsView(APIView):
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
-
-class FetchCustomerOrdersDetailsView(APIView):
+# allows customer to view the list of all deliveries they have accepted
+class CustomerOrdersListView(APIView):
     permission_classes = [IsCustomer]
 
     def get(self, request):
@@ -440,9 +446,9 @@ class FetchCustomerOrdersDetailsView(APIView):
             customer=request.user).order_by('-created_at')
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class FetchCustomerOrderWellDetailsView(APIView):
+    
+#allows customer to fetch detailed information about a specific delivery they have accepted
+class CustomerOrderDetailView(APIView):
     permission_classes = [IsCustomer]
 
     def get(self, request, order_id):
@@ -453,7 +459,8 @@ class FetchCustomerOrderWellDetailsView(APIView):
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
-# This view allows admin users to see a list of all deliveries (orders) along with their details. 
+
+# This view allows admin users to see a list of all deliveries (orders) along with their details.
 class AdminDeliveriesListView(APIView):
     permission_classes = [IsAdmin]
 
@@ -472,7 +479,7 @@ class AdminDeliveriesListView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# This view allows admin users to see a list of all riders along with their profiles and current availability status. 
+# This view allows admin users to see a list of all riders along with their profiles and current availability status.
 class AdminRidersListView(APIView):
     permission_classes = [IsAdmin]
 
@@ -481,7 +488,7 @@ class AdminRidersListView(APIView):
             'user').all().order_by('-created_at')
         serializer = RiderProfileSerializer(riders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
 
 # This view allows admin users to see detailed information about a specific rider, including their profile details and current active order if they have one.
 class AdminRiderDetailView(APIView):
@@ -489,14 +496,15 @@ class AdminRiderDetailView(APIView):
 
     def get(self, request, rider_id):
         try:
-            rider_profile = RiderProfile.objects.select_related('user').get(id=rider_id)
+            rider_profile = RiderProfile.objects.select_related(
+                'user').get(id=rider_id)
             serializer = RiderProfileSerializer(rider_profile)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except RiderProfile.DoesNotExist:
             return Response({'error': 'Rider not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-# This view allows admin users to override the current status of an order in case of any issues or disputes. 
+# This view allows admin users to override the current status of an order in case of any issues or disputes.
 class AdminOrderStateOverrideView(APIView):
     permission_classes = [IsAdmin]
 
@@ -523,7 +531,6 @@ class AdminOrderStateOverrideView(APIView):
                 from_status=old_status,
                 to_status=new_status
             )
-            
 
             return Response({
                 'message': f'Order status updated',
@@ -535,9 +542,9 @@ class AdminOrderStateOverrideView(APIView):
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
-
+# allows authenticated users(admin) to fetch detailed information about a specific delivery
 class DeliveriesDetailsView(APIView):
-    permission_classes = [IsRider, IsSender, IsCustomer, IsAdmin]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, order_id):
         try:
