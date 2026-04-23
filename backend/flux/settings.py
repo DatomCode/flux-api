@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-mrhkcusz$-+#-jaowu1sur$cxv3b2fnav2!by866o8_ws7+hr2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -90,6 +90,11 @@ DATABASES = {
         'OPTIONS': {
             'sslmode': 'require',
         },
+
+        'TEST': {
+            'NAME': 'test_fluxapi',
+        }
+
     }
 }
 
