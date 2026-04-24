@@ -48,7 +48,7 @@ class UserLoginTest(TestCase):
             'password': 'testpass123'
         }
         response = self.client.post(
-            '/fluxapi/auth/login/',
+            '/api/auth/login/',
             data=json.dumps(data),
             content_type='application/json'
         )
@@ -70,7 +70,7 @@ class DeliveryCreationTest(TestCase):
         )
         # login to get token
         response = self.client.post(
-            '/fluxapi/auth/login/',
+            '/api/auth/login/',
             data=json.dumps({'email': 'sender@test.com', 'password': 'testpass123'}),
             content_type='application/json'
         )
@@ -84,7 +84,7 @@ class DeliveryCreationTest(TestCase):
             'customer_email': 'customer@test.com'
         }
         response = self.client.post(
-            '/fluxapi/deliveries/',
+            '/api/deliveries/',
             data=json.dumps(data),
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.token}'
