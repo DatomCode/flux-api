@@ -44,7 +44,7 @@ class UserLoginTest(TestCase):
 
     def test_user_can_login(self):
         data = {
-            'email': 'test@test.com',
+            'username': 'testuser',
             'password': 'testpass123'
         }
         response = self.client.post(
@@ -71,7 +71,7 @@ class DeliveryCreationTest(TestCase):
         # login to get token
         response = self.client.post(
             '/api/auth/login/',
-            data=json.dumps({'email': 'sender@test.com', 'password': 'testpass123'}),
+            data=json.dumps({'username': 'testsender', 'password': 'testpass123'}),
             content_type='application/json'
         )
         self.token = response.json()['access']
@@ -106,7 +106,7 @@ class AvailableOrdersTest(TestCase):
         RiderProfile.objects.create(user=self.rider_user, is_available=True)
         response = self.client.post(
             '/api/auth/login/',
-            data=json.dumps({'email': 'rider@test.com', 'password': 'testpass123'}),
+            data=json.dumps({'username': 'testrider', 'password': 'testpass123'}),
             content_type='application/json'
         )
         self.token = response.json()['access']
@@ -152,7 +152,7 @@ class RiderAcceptOrderTest(TestCase):
         )
         response = self.client.post(
             '/api/auth/login/',
-            data=json.dumps({'email': 'rider@test.com', 'password': 'testpass123'}),
+            data=json.dumps({'username': 'testrider', 'password': 'testpass123'}),
             content_type='application/json'
         )
         self.token = response.json()['access']
@@ -216,7 +216,7 @@ class DeliveryConfirmTest(TestCase):
         )
         response = self.client.post(
             '/api/auth/login/',
-            data=json.dumps({'email': 'rider@test.com', 'password': 'testpass123'}),
+            data=json.dumps({'username': 'testrider', 'password': 'testpass123'}),
             content_type='application/json'
         )
         self.token = response.json()['access']
@@ -262,7 +262,7 @@ class AdminOrderOverrideTest(TestCase):
         )
         response = self.client.post(
             '/api/auth/login/',
-            data=json.dumps({'email': 'admin@test.com', 'password': 'testpass123'}),
+            data=json.dumps({'username': 'testadmin', 'password': 'testpass123'}),
             content_type='application/json'
         )
         self.token = response.json()['access']

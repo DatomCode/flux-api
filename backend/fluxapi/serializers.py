@@ -1,5 +1,9 @@
 from rest_framework import serializers
 from .models import UserProfile, RiderProfile, CustomerProfile, Order
+from django.contrib.auth.hashers import make_password
+import secrets
+
+
 
 # User registration serializer
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -12,6 +16,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_role(self, value):
         if value == 'admin':
             raise serializers.ValidationError("Cannot register as admin.")
+        return value
     
     # create method to handle user creation and associated profile creation
     def create(self, validated_data):
@@ -106,10 +111,11 @@ class OrderSerializer(serializers.ModelSerializer):
 
         
         if customer is None:
+            
             ghost_user = UserProfile.objects.create_user(
                 username=customer_phone or customer_email,
                 email=customer_email or '',
-                password=UserProfile.objects.make_random_password(),
+                password=make_password(secrets.token_hex(16)),
                 role='customer',
                 first_name='',
                 last_name=''
@@ -117,7 +123,7 @@ class OrderSerializer(serializers.ModelSerializer):
             CustomerProfile.objects.create(
                 user=ghost_user,
                 phone_number=customer_phone or '',
-                default_delivery_address=''
+                default_delivery_address=None
             )
             customer = ghost_user
 
