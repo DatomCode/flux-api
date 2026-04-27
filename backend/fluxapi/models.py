@@ -100,3 +100,4 @@ class DeliveryStatusLog(models.Model):
 
     def __str__(self):
         return f"Status {self.to_status} for Order {self.order.id} at {self.timestamp}"
+
