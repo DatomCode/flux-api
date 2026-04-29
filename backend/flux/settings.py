@@ -166,3 +166,17 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Africa/Lagos'
+
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'expire-delivery-codes-every-5-minutes': {
+        'task': 'fluxapi.tasks.expire_delivery_codes',
+        'schedule': 300.0,  # every 5 minutes
+    },
+    'rebroadcast-pending-orders-every-10-minutes': {
+        'task': 'fluxapi.tasks.rebroadcast_pending_orders',
+        'schedule': 600.0,  # every 10 minutes
+    },
+}
