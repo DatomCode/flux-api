@@ -13,6 +13,7 @@ from .models import DeliveryCode, Order, RiderProfile, CustomerProfile, Delivery
 from datetime import timedelta
 from django.db import transaction
 from django.contrib.auth import authenticate
+from .throttles import LoginThrottle, DeliveryCreateThrottle, StateTransitionThrottle
 
 # Create your views here.
 
@@ -63,8 +64,9 @@ class UserRegistrationView(APIView):
 # User login view that authenticates the user and returns their details along with JWT tokens
 
 class UserLoginView(APIView):
+    
     permission_classes = [AllowAny]
-
+    throttle_classes = [LoginThrottle]
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
@@ -138,6 +140,8 @@ class LogoutView(APIView):
 # Allows sender to create a new delivery
 class DeliveryCreationView(APIView):
     permission_classes = [IsSender]
+    throttle_classes = [DeliveryCreateThrottle]
+
 
     def post(self, request):
         serializer = OrderSerializer(data=request.data)
@@ -156,6 +160,7 @@ class DeliveryCreationView(APIView):
 # allows rider to accept a pending order for deivery
 class RiderAcceptOrderView(APIView):
     permission_classes = [IsRider]
+    throttle_classes = [StateTransitionThrottle]
 
     def post(self, request, order_id):
         rider = request.user
@@ -195,6 +200,7 @@ class RiderAcceptOrderView(APIView):
 # Allows rider to mark an order as in transit after they have picked it up and are on the way to the delivery location
 class InTransitOrderView(APIView):
     permission_classes = [IsRider]
+    throttle_classes = [StateTransitionThrottle]
 
     def post(self, request, order_id):
         try:
@@ -240,7 +246,7 @@ class AvailableOrdersView(APIView):
 # This view allows riders to mark an order as picked up once they have arrived at the pickup location and collected the package from the sender.
 class PickupOrderView(APIView):
     permission_classes = [IsRider]
-
+    throttle_classes = [StateTransitionThrottle]
     def post(self, request, order_id):
         try:
             order = Order.objects.get(id=order_id)
@@ -269,6 +275,7 @@ class PickupOrderView(APIView):
 # allows rider to mark an order as arrived once they have reached the delivery location
 class ArriveOrderView(APIView):
     permission_classes = [IsRider]
+    throttle_classes = [StateTransitionThrottle]
 
     def post(self, request, order_id):
         try:

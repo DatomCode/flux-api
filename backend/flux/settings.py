@@ -180,3 +180,24 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 600.0,  # every 10 minutes
     },
 }
+
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',
+        'user': '1000/day',
+        'login': '5/minute',
+        'delivery_create': '10/hour',
+        'state_transition': '20/hour',
+    }
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': 'redis://localhost:6379/1',
+    }
+}
