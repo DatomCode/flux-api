@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import UserProfileView, UserRegistrationView, DeliveryCreationView, LogoutView, RiderAcceptOrderView, AvailableOrdersView, DeliveryConfirmView, FetchRiderOrderDetailsView, UserLoginView, RiderAvailabilitySwitchView, SenderOrderDetailView, SenderOrdersListView, CustomerOrderDetailView, CustomerOrdersListView, AdminRidersListView, AdminDeliveriesListView, AdminOrderStateOverrideView, DeliveriesDetailsView, AdminRiderDetailView, ArriveOrderView,  PickupOrderView, InTransitOrderView
 from rest_framework_simplejwt.views import TokenRefreshView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 
 urlpatterns = [
@@ -59,4 +60,10 @@ urlpatterns = [
     path("admin/riders/<int:rider_id>/details/",
          AdminRiderDetailView.as_view(), name="admin-rider-detail"),
 
+
+     # API schema and documentation
+     path('schema/', SpectacularAPIView.as_view(), name='schema'),
+     path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+
 ]
+

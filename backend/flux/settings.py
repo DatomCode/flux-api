@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
+from celery.schedules import crontab
 
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'fluxapi',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -156,6 +158,19 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',
+        'user': '1000/day',
+        'login': '5/minute',
+        'delivery_create': '10/hour',
+        'state_transition': '20/hour',
+    }
+
 }
 
 
@@ -168,7 +183,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Africa/Lagos'
 
 
-from celery.schedules import crontab
+
 
 CELERY_BEAT_SCHEDULE = {
     'expire-delivery-codes-every-5-minutes': {
@@ -181,19 +196,6 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-REST_FRAMEWORK = {
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/day',
-        'user': '1000/day',
-        'login': '5/minute',
-        'delivery_create': '10/hour',
-        'state_transition': '20/hour',
-    }
-}
 
 CACHES = {
     'default': {
