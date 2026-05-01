@@ -1,4 +1,3 @@
-
 from django.utils import timezone
 import secrets
 from django.shortcuts import render
@@ -14,6 +13,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.contrib.auth import authenticate
 from .throttles import LoginThrottle, DeliveryCreateThrottle, StateTransitionThrottle
+from django.core.cache import cache
 
 # Create your views here.
 
@@ -178,6 +178,7 @@ class RiderAcceptOrderView(APIView):
             order.rider = rider
             order.current_status = 'assigned'
             order.save()
+            cache.delete('available_orders')
 
             # logs the status change from pending to assigned along with the actor (rider) who made the change
             log_status_change(
@@ -237,10 +238,16 @@ class AvailableOrdersView(APIView):
         rider_profile = RiderProfile.objects.get(user=request.user)
         if not rider_profile.is_available:
             return Response({'error': 'You already have an active order or marked as unavailable'}, status=status.HTTP_400_BAD_REQUEST)
-        orders = Order.objects.filter(
-            current_status='pending').order_by('-created_at')
-        serializer = OrderSerializer(orders, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        cache_key = 'available_orders'
+        cached_orders = cache.get(cache_key)
+        if cached_orders is None:
+            orders = Order.objects.filter(current_status='pending').order_by('-created_at')
+            serializer = OrderSerializer(orders, many=True)
+            cache.set(cache_key, serializer.data, 60)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(cached_orders, status=status.HTTP_200_OK)
+        
 
 
 # This view allows riders to mark an order as picked up once they have arrived at the pickup location and collected the package from the sender.
@@ -472,19 +479,23 @@ class AdminDeliveriesListView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        orders = Order.objects.all().order_by('-created_at')
-
         status_filter = request.query_params.get('status')
-        if status_filter:
-            orders = orders.filter(current_status=status_filter)
-
         date_filter = request.query_params.get('date')
-        if date_filter:
-            orders = orders.filter(created_at__date=date_filter)
 
-        serializer = OrderSerializer(orders, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        cache_key = f'admin_deliveries_{status_filter}_{date_filter}'
+        cached = cache.get(cache_key)
 
+        if cached is None:
+            orders = Order.objects.all().order_by('-created_at')
+            if status_filter:
+                orders = orders.filter(current_status=status_filter)
+            if date_filter:
+                orders = orders.filter(created_at__date=date_filter)
+            serializer = OrderSerializer(orders, many=True)
+            cache.set(cache_key, serializer.data, 120)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(cached, status=status.HTTP_200_OK)
 
 # This view allows admin users to see a list of all riders along with their profiles and current availability status.
 class AdminRidersListView(APIView):
@@ -531,6 +542,8 @@ class AdminOrderStateOverrideView(APIView):
             old_status = order.current_status
             order.current_status = new_status
             order.save()
+            cache.delete(f'delivery_{order.id}_{request.user.id}')
+            cache.delete(f'admin_deliveries_None_None')
 
             log_status_change(
                 order=order,
@@ -555,6 +568,12 @@ class DeliveriesDetailsView(APIView):
 
     def get(self, request, order_id):
         try:
+            cache_key = f'delivery_{order_id}_{request.user.id}'
+            cached = cache.get(cache_key)
+
+            if cached is not None:
+                return Response(cached, status=status.HTTP_200_OK)
+
             order = Order.objects.get(id=order_id)
             role = request.user.role
 
@@ -573,6 +592,7 @@ class DeliveriesDetailsView(APIView):
                 return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
             serializer = OrderSerializer(order)
+            cache.set(cache_key, serializer.data, 30)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Order.DoesNotExist:
