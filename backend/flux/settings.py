@@ -172,11 +172,11 @@ REST_FRAMEWORK = {
     }
 
 }
-
+REDIS_URL = os.getenv('REDIS_URL')
 
 # Celery
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -195,7 +195,7 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 600.0,  # every 10 minutes
     },
 }
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
+
 
 CACHES = {
     'default': {
