@@ -2,7 +2,9 @@ from celery import shared_task
 from django.utils import timezone
 from .models import Order, DeliveryCode
 
+# Celery tasks for background processing of delivery code expiration and pending order rebroadcasting
 
+# This task checks for delivery codes that have expired (i.e., their expiry time has passed) and deletes them, while also resetting the associated order to 'in_transit' status if the code was not confirmed by either the rider or the customer
 @shared_task
 def expire_delivery_codes():
     """Expire delivery codes that have passed their expiry time and reset order to in_transit"""
@@ -20,7 +22,7 @@ def expire_delivery_codes():
 
     return f"{expired_codes.count()} expired codes cleaned up"
 
-
+# This task can be scheduled to run every 10 minutes to check for pending orders that have not been accepted by any rider and flag them for rebroadcasting
 @shared_task
 def rebroadcast_pending_orders():
     """Flag orders that have been pending for more than 10 minutes with no rider"""

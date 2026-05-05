@@ -69,39 +69,40 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
 
 
 
-
+# Serializer for creating a delivery order, allowing either customer phone or email for ghost user creation if the customer does not exist
 
 class OrderSerializer(serializers.ModelSerializer):
-    
+    # Allow either phone or email for customer identification
     customer_phone = serializers.CharField(required=False)
     customer_email = serializers.EmailField(required=False)
 
     class Meta:
         model = Order
         fields = ['id', 'package_description', 'pickup_address', 
-          'delivery_address', 'company', 'customer_phone', 'customer_email']
+          'delivery_address', 'company', 'customer_phone', 'customer_email'] 
         
+     # Add validation to ensure at least one of customer_phone or customer_email is provided   
     def validate(self, data):
         if not data.get('customer_phone') and not data.get('customer_email'):
             raise serializers.ValidationError(
                 "Provide either customer phone number or email."
             )
         return data
-        
+        # Override create method to handle ghost user creation if customer does not exist, and associate the order with the correct sender and customer
     def create(self, validated_data):
         customer_phone = validated_data.pop('customer_phone', None)
         customer_email = validated_data.pop('customer_email', None)
         sender = validated_data.pop('sender')
 
         customer = None
-
+    # First try to find existing customer by phone, then by email. If neither exists, create a ghost user and profile
         if customer_phone:
             try:
                 customer_profile = CustomerProfile.objects.get(phone_number=customer_phone)
                 customer = customer_profile.user
             except CustomerProfile.DoesNotExist:
                 pass
-
+               
         if customer is None and customer_email:
             try:
                 customer_profile = CustomerProfile.objects.get(user__email=customer_email)
@@ -109,7 +110,7 @@ class OrderSerializer(serializers.ModelSerializer):
             except CustomerProfile.DoesNotExist:
                 pass
 
-        
+        # If customer still doesn't exist, create a ghost user and profile, and log a notification (stubbed for now)
         if customer is None:
             
             ghost_user = UserProfile.objects.create_user(
@@ -137,8 +138,3 @@ class OrderSerializer(serializers.ModelSerializer):
         )
 
         return order
-    
-   
-
-   
-    

@@ -1,5 +1,7 @@
 from rest_framework.permissions import BasePermission
 
+# Custom permission classes to enforce role-based access control for different API endpoints based on the user's role (sender, rider, customer, admin)
+
 
 class IsSender(BasePermission):
     def has_permission(self, request, view):
