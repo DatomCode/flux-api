@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-mrhkcusz$-+#-jaowu1sur$cxv3b2fnav2!by866o8_ws7+hr2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['flux-api-nqps.onrender.com', 'localhost', '127.0.0.1']
 
 
 # Application definition
