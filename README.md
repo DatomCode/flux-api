@@ -190,11 +190,11 @@ Tests use SQLite locally — no cloud database required.
 
 ---
 
-## Live Demo
+## Live API
+`https://flux-api-nqps.onrender.com/api/`
 
-Coming Day 30.
 
-API docs: `/api/docs/`
+API docs: `https://flux-api-nqps.onrender.com/api/docs/`
 
 ---
 
