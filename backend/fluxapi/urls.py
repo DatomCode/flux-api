@@ -15,8 +15,6 @@ urlpatterns = [
 
     # delivery endpoints
     path("deliveries/", DeliveryCreationView.as_view(), name="delivery-create"),
-    path("admin/deliveries/", AdminDeliveriesListView.as_view(),
-         name="admin-deliveries-list"),
     path("deliveries/<int:order_id>/accept/",
          RiderAcceptOrderView.as_view(), name="rider-accept-order"),
     path("deliveries/available/", AvailableOrdersView.as_view(),
@@ -54,7 +52,8 @@ urlpatterns = [
 
     # admin endpoints
     path("admin/riders/", AdminRidersListView.as_view(), name="admin-riders-list"),
-
+    path("admin/deliveries/", AdminDeliveriesListView.as_view(),
+              name="admin-deliveries-list"),
     path("admin/orders/<int:order_id>/override/",
          AdminOrderStateOverrideView.as_view(), name="admin-order-override"),
     path("admin/riders/<int:rider_id>/details/",

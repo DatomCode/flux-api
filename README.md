@@ -44,7 +44,7 @@ No more informal WhatsApp assignments. No more verbal confirmations with no audi
 Every delivery moves through a fixed sequence. No actor can skip a state or move backwards.
 
 ```
-PENDING → ASSIGNED → PICKED_UP → IN_TRANSIT → ARRIVED → DELIVERED → COMPLETED
+PENDING → ASSIGNED → ACCEPTED → PICKED_UP → IN_TRANSIT → ARRIVED → DELIVERED → COMPLETED
 ```
 
 | State | Triggered By | Meaning |
